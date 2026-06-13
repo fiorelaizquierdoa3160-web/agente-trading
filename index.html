@@ -147,6 +147,7 @@ main{grid-row:2;overflow-y:auto;background:var(--bg)}
 .tkg{font-size:13px;font-weight:700;margin-top:3px}
 .rbtn{display:inline-flex;align-items:center;gap:6px;background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:7px 14px;font-size:12px;color:var(--text2);cursor:pointer;transition:.15s;font-weight:500}
 .rbtn:hover{background:var(--bg4);color:var(--text)}
+.rbtn.p{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:700}
 /* HEATMAP */
 .hmap{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
 .hcell{border-radius:9px;padding:10px 8px;text-align:center;cursor:pointer;transition:.15s}
@@ -267,7 +268,7 @@ main{grid-row:2;overflow-y:auto;background:var(--bg)}
     <div style="font-size:13px;color:var(--text2);margin-bottom:14px">Acciones · Índices · ETFs · Cripto · Futuros — datos en tiempo real vía Finnhub</div>
     <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:4px" id="quickPills"></div>
   </div>
-  <div id="noApi" class="info"><i class="ti ti-info-circle" style="font-size:17px;flex-shrink:0"></i><span>Configura tu <strong>API Key de Finnhub</strong> para ver datos en tiempo real. Regístrate gratis en <a href="https://finnhub.io/register" target="_blank" style="color:var(--blue)">finnhub.io</a></span></div>
+  <div id="noApi" class="info"><i class="ti ti-info-circle" style="font-size:17px;flex-shrink:0"></i><span>Configura tu <strong>API Key de Finnhub</strong> (obligatoria) y opcionalmente tu <strong>API Key de Twelve Data</strong> para precios y velas más confiables. Regístrate gratis en <a href="https://finnhub.io/register" target="_blank" style="color:var(--blue)">finnhub.io</a> y <a href="https://twelvedata.com/pricing" target="_blank" style="color:var(--blue)">twelvedata.com</a></span></div>
   <div class="card" id="rTbl" style="display:none">
     <div class="pt"><i class="ti ti-table"></i>Tu investigación reciente</div>
     <table class="wtbl" id="dTbl">
@@ -458,10 +459,14 @@ main{grid-row:2;overflow-y:auto;background:var(--bg)}
 <!-- MODAL -->
 <div class="modal-bg" id="apiModal">
   <div class="modal">
-    <div class="mh"><i class="ti ti-key" style="color:var(--blue)"></i>API Key de Finnhub</div>
-    <div class="ms">Tu clave se guarda solo en este navegador (localStorage). Solo se usa para llamar a Finnhub directamente.</div>
-    <input class="mi" id="akInput" type="password" placeholder="Pega tu API Key aquí…" autocomplete="off"/>
+    <div class="mh"><i class="ti ti-key" style="color:var(--blue)"></i>Conectar fuentes de datos</div>
+    <div class="ms">Tus claves se guardan solo en este navegador (localStorage). Se usan para llamar a las APIs directamente desde tu navegador.</div>
+    <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Finnhub (fundamentals, noticias, recomendaciones)</div>
+    <input class="mi" id="akInput" type="password" placeholder="Pega tu API Key de Finnhub…" autocomplete="off"/>
     <div class="mhint">¿Sin clave? → <a href="https://finnhub.io/register" target="_blank">finnhub.io/register</a> (plan gratuito es suficiente)</div>
+    <div style="font-size:11px;color:var(--text3);font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;margin-top:6px">Twelve Data (precios y velas — opcional, recomendado)</div>
+    <input class="mi" id="akInput2" type="password" placeholder="Pega tu API Key de Twelve Data…" autocomplete="off"/>
+    <div class="mhint">¿Sin clave? → <a href="https://twelvedata.com/pricing" target="_blank">twelvedata.com</a> (plan gratuito: 800 llamadas/día). Si la dejas vacía, los precios y velas se obtendrán de Finnhub.</div>
     <div id="akErr"></div>
     <div class="mr">
       <button class="mb cx" onclick="closeM()">Cancelar</button>
@@ -472,6 +477,7 @@ main{grid-row:2;overflow-y:auto;background:var(--bg)}
 
 <script>
 let KEY=localStorage.getItem('fh_k')||'';
+let TDKEY=localStorage.getItem('td_k')||'';
 let CD={};
 let charts={};
 const WL=['AAPL','TSLA','NVDA','MSFT','META','AMZN','SPY','QQQ'];
@@ -489,12 +495,14 @@ function go(p){
 }
 
 // MODAL
-function openM(){document.getElementById('apiModal').classList.add('open');if(KEY)document.getElementById('akInput').value=KEY;}
+function openM(){document.getElementById('apiModal').classList.add('open');if(KEY)document.getElementById('akInput').value=KEY;if(TDKEY)document.getElementById('akInput2').value=TDKEY;}
 function closeM(){document.getElementById('apiModal').classList.remove('open');}
 function saveK(){
   const v=document.getElementById('akInput').value.trim();
-  if(!v){document.getElementById('akErr').innerHTML='<div class="err" style="margin-bottom:8px"><i class="ti ti-alert-circle"></i> Ingresa una API key válida.</div>';return;}
+  const v2=document.getElementById('akInput2').value.trim();
+  if(!v){document.getElementById('akErr').innerHTML='<div class="err" style="margin-bottom:8px"><i class="ti ti-alert-circle"></i> Ingresa al menos la API key de Finnhub.</div>';return;}
   KEY=v;localStorage.setItem('fh_k',v);
+  TDKEY=v2;localStorage.setItem('td_k',v2);
   document.getElementById('akErr').innerHTML='';
   closeM();setConn(true);
   document.getElementById('noApi').style.display='none';
@@ -502,7 +510,9 @@ function saveK(){
 }
 function setConn(ok){
   document.getElementById('cdot').className='dot'+(ok?' on':'');
-  document.getElementById('ctext').textContent=ok?'Conectado · Finnhub':'Sin conectar';
+  let txt=ok?'Conectado · Finnhub':'Sin conectar';
+  if(ok&&TDKEY)txt+=' + Twelve Data';
+  document.getElementById('ctext').textContent=txt;
   document.getElementById('ctext').style.color=ok?'var(--green)':'var(--text3)';
 }
 
@@ -510,6 +520,53 @@ function setConn(ok){
 async function fh(p){
   if(!KEY)return null;
   try{const r=await fetch('https://finnhub.io/api/v1'+p+'&token='+KEY);if(!r.ok)return null;return r.json();}catch{return null;}
+}
+
+// Twelve Data
+async function td(p){
+  if(!TDKEY)return null;
+  try{const r=await fetch('https://api.twelvedata.com'+p+(p.includes('?')?'&':'?')+'apikey='+TDKEY);if(!r.ok)return null;
+    const j=await r.json();
+    if(j.status==='error'||j.code)return null;
+    return j;
+  }catch{return null;}
+}
+
+// Unified quote: tries Twelve Data first (if configured), falls back to Finnhub
+async function getQuote(sym){
+  if(TDKEY){
+    const q=await td('/quote?symbol='+sym);
+    if(q&&q.close){
+      const c=parseFloat(q.close),pc=parseFloat(q.previous_close),o=parseFloat(q.open),h=parseFloat(q.high),l=parseFloat(q.low);
+      if(c&&pc)return{c,pc,o,h,l,src:'td'};
+    }
+  }
+  const d=await fh('/quote?symbol='+sym);
+  if(d&&d.c)return{c:d.c,pc:d.pc,o:d.o,h:d.h,l:d.l,src:'fh'};
+  return null;
+}
+
+// Unified daily candles for last ~90 days: tries Twelve Data first, falls back to Finnhub
+async function getCandles(sym){
+  if(TDKEY){
+    const ts=await td('/time_series?symbol='+sym+'&interval=1day&outputsize=90');
+    if(ts&&ts.values&&ts.values.length){
+      const vals=ts.values.slice().reverse();
+      return{
+        s:'ok',
+        t:vals.map(v=>Math.floor(new Date(v.datetime).getTime()/1000)),
+        o:vals.map(v=>parseFloat(v.open)),
+        h:vals.map(v=>parseFloat(v.high)),
+        l:vals.map(v=>parseFloat(v.low)),
+        c:vals.map(v=>parseFloat(v.close)),
+        v:vals.map(v=>v.volume!=null?parseFloat(v.volume):null),
+        src:'td'
+      };
+    }
+  }
+  const d=await fh('/stock/candle?symbol='+sym+'&resolution=D&from='+Math.floor(Date.now()/1000-86400*90)+'&to='+Math.floor(Date.now()/1000));
+  if(d&&d.s==='ok')return{s:'ok',t:d.t,o:d.o,h:d.h,l:d.l,c:d.c,v:d.v,src:'fh'};
+  return{s:'no_data'};
 }
 
 // SIGNAL
@@ -531,7 +588,7 @@ async function loadWL(){
   const c=document.getElementById('wlC');
   c.innerHTML=WL.map(t=>`<div class="wr" onclick="analyze('${t}')"><span class="ws">${t}</span><div class="wr-r"><div class="wp" id="wlp_${t}">—</div><div class="wc" id="wlc_${t}">—</div></div></div>`).join('');
   for(const t of WL){
-    const d=await fh('/quote?symbol='+t);
+    const d=await getQuote(t);
     if(d&&d.c){
       const p=((d.c-d.pc)/d.pc*100);
       document.getElementById('wlp_'+t).textContent='$'+d.c.toFixed(2);
@@ -550,17 +607,17 @@ function buildPills(){
 
 // MAIN ANALYSIS
 async function analyze(sym){
-  if(!KEY){document.getElementById('noApi').style.display='flex';openM();return;}
+  if(!KEY&&!TDKEY){document.getElementById('noApi').style.display='flex';openM();return;}
   sym=sym.toUpperCase().trim();
   CD.sym=sym;
   document.getElementById('noApi').style.display='none';
   document.getElementById('dLoad').innerHTML='<div class="loader"><div class="sp"></div>Analizando <strong>'+sym+'</strong>…</div>';
 
   const[quote,profile,news,candles,rec,metrics,peers]=await Promise.all([
-    fh('/quote?symbol='+sym),
+    getQuote(sym),
     fh('/stock/profile2?symbol='+sym),
     fh('/company-news?symbol='+sym+'&from=2025-01-01&to=2026-12-31'),
-    fh('/stock/candle?symbol='+sym+'&resolution=D&from='+Math.floor(Date.now()/1000-86400*90)+'&to='+Math.floor(Date.now()/1000)),
+    getCandles(sym),
     fh('/stock/recommendation?symbol='+sym),
     fh('/stock/metric?symbol='+sym+'&metric=all'),
     fh('/stock/peers?symbol='+sym)
@@ -672,6 +729,17 @@ function buildReport(){
     <div class="prb"><div class="prd" id="pdot"></div></div>
     <div style="font-size:11px;color:var(--text3);text-align:center;margin-top:2px">Precio actual: $${d.price.toFixed(2)}</div>
   </div>
+  <div class="card" style="margin-top:0">
+    <div class="pt" style="justify-content:space-between">
+      <span><i class="ti ti-chart-candle"></i>Gráfico de velas · ${d.candles?.src==='td'?'Twelve Data':d.candles?.src==='fh'?'Finnhub':'—'}</span>
+      <div style="display:flex;gap:6px">
+        <span class="rbtn" id="cdRange30" onclick="setCdRange(30)" style="padding:4px 10px;font-size:11px">1M</span>
+        <span class="rbtn" id="cdRange90" onclick="setCdRange(90)" style="padding:4px 10px;font-size:11px">3M</span>
+        <span class="rbtn" id="cdMAtoggle" onclick="toggleCdMA()" style="padding:4px 10px;font-size:11px">MA 20/50</span>
+      </div>
+    </div>
+    ${d.candles&&d.candles.s==='ok'?'<div id="cdWrap" style="width:100%;overflow-x:auto"></div>':'<div style="color:var(--text3);font-size:12px;padding:10px 0">Sin datos de velas disponibles. Configura Twelve Data o verifica el ticker.</div>'}
+  </div>
   <div class="g4">
     <div class="sb"><div class="sl">Apertura</div><div class="sv">$${d.open.toFixed(2)}</div></div>
     <div class="sb"><div class="sl">Cierre ant.</div><div class="sv">$${d.prev.toFixed(2)}</div></div>
@@ -765,6 +833,7 @@ function buildReport(){
     const rsin=document.getElementById('rsin');
     if(rsin&&d.rsi!==null)rsin.style.left=(d.rsi)+'%';
     drawRptChart();
+    drawCandles();
   },150);
 }
 
@@ -818,6 +887,87 @@ function drawRptChart(){
 
 function refReport(){if(CD.sym)analyze(CD.sym);}
 function loadReport(sym){analyze(sym).then(()=>go('reports'));}
+
+// CANDLESTICK CHART
+let cdRange=90, cdShowMA=true;
+function setCdRange(n){cdRange=n;drawCandles();}
+function toggleCdMA(){cdShowMA=!cdShowMA;drawCandles();}
+function ma(arr,n,i){
+  if(i+1<n)return null;
+  let s=0;for(let k=i-n+1;k<=i;k++)s+=arr[k];
+  return s/n;
+}
+function drawCandles(){
+  const d=CD;if(!d.candles||d.candles.s!=='ok')return;
+  const wrap=document.getElementById('cdWrap');if(!wrap)return;
+  document.getElementById('cdRange30')?.classList.toggle('p',cdRange===30);
+  document.getElementById('cdRange90')?.classList.toggle('p',cdRange===90);
+  document.getElementById('cdMAtoggle')?.classList.toggle('p',cdShowMA);
+  const{t,o,h,l,c}=d.candles;
+  const n=t.length;
+  const start=Math.max(0,n-cdRange);
+  const T=t.slice(start),O=o.slice(start),H=h.slice(start),L=l.slice(start),C=c.slice(start);
+  const ma20full=c.map((_,i)=>ma(c,20,i)), ma50full=c.map((_,i)=>ma(c,50,i));
+  const MA20=ma20full.slice(start), MA50=ma50full.slice(start);
+  const cnt=T.length;
+  if(!cnt){wrap.innerHTML='<div style="color:var(--text3);font-size:12px;padding:10px 0">Datos insuficientes.</div>';return;}
+  const candleW=Math.max(28,Math.min(700/cnt,1000/cnt));
+  const W=Math.max(700,cnt*candleW+40);
+  const HEIGHT=260, padTop=14, padBottom=28, padL=4, padR=8;
+  const plotH=HEIGHT-padTop-padBottom;
+  let mn=Math.min(...L), mx=Math.max(...H);
+  const validMAs=[...MA20,...MA50].filter(v=>v!==null);
+  if(validMAs.length){mn=Math.min(mn,...validMAs);mx=Math.max(mx,...validMAs);}
+  const range=(mx-mn)||1; mn-=range*0.04; mx+=range*0.04;
+  const y=v=>padTop+plotH-((v-mn)/(mx-mn))*plotH;
+  const x=i=>padL+i*candleW+candleW/2;
+  const bw=Math.max(candleW*0.55,4);
+
+  let svg=`<svg viewBox="0 0 ${W} ${HEIGHT}" width="${W}" height="${HEIGHT}" style="display:block;font-family:inherit">`;
+  // grid lines
+  for(let g=0;g<=4;g++){
+    const gv=mn+(mx-mn)*g/4, gy=y(gv);
+    svg+=`<line x1="0" y1="${gy.toFixed(1)}" x2="${W}" y2="${gy.toFixed(1)}" stroke="rgba(255,255,255,.05)" stroke-width="1"/>`;
+    svg+=`<text x="4" y="${(gy-3).toFixed(1)}" fill="#6b7280" font-size="9">$${gv.toFixed(2)}</text>`;
+  }
+  // candles
+  for(let i=0;i<cnt;i++){
+    const up=C[i]>=O[i];
+    const col=up?'#00c896':'#ff4d6d';
+    const cx=x(i);
+    svg+=`<line x1="${cx.toFixed(1)}" y1="${y(H[i]).toFixed(1)}" x2="${cx.toFixed(1)}" y2="${y(L[i]).toFixed(1)}" stroke="${col}" stroke-width="1.2"/>`;
+    const yo=y(O[i]), yc=y(C[i]);
+    const top=Math.min(yo,yc), h2=Math.max(Math.abs(yc-yo),1.2);
+    svg+=`<rect x="${(cx-bw/2).toFixed(1)}" y="${top.toFixed(1)}" width="${bw.toFixed(1)}" height="${h2.toFixed(1)}" fill="${col}" />`;
+  }
+  // MA lines
+  if(cdShowMA){
+    const buildPath=(arr)=>{let p='';let started=false;
+      arr.forEach((v,i)=>{if(v===null)return;const px=x(i),py=y(v);p+=(started?'L':'M')+px.toFixed(1)+','+py.toFixed(1)+' ';started=true;});
+      return p;
+    };
+    const p20=buildPath(MA20), p50=buildPath(MA50);
+    if(p20.trim())svg+=`<path d="${p20}" fill="none" stroke="#f0b429" stroke-width="1.5" opacity="0.9"/>`;
+    if(p50.trim())svg+=`<path d="${p50}" fill="none" stroke="#a78bfa" stroke-width="1.5" opacity="0.9"/>`;
+  }
+  // x-axis labels (sparse)
+  const step=Math.max(1,Math.ceil(cnt/8));
+  for(let i=0;i<cnt;i+=step){
+    const dt=new Date(T[i]*1000);
+    svg+=`<text x="${(x(i)).toFixed(1)}" y="${HEIGHT-8}" fill="#6b7280" font-size="9" text-anchor="middle">${dt.getMonth()+1}/${dt.getDate()}</text>`;
+  }
+  svg+=`</svg>`;
+  // legend
+  let legend='<div style="display:flex;gap:14px;font-size:11px;color:var(--text2);margin-bottom:6px;flex-wrap:wrap">';
+  legend+='<span><span style="display:inline-block;width:10px;height:10px;background:#00c896;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Alza (cierre &gt; apertura)</span>';
+  legend+='<span><span style="display:inline-block;width:10px;height:10px;background:#ff4d6d;border-radius:2px;margin-right:4px;vertical-align:middle"></span>Baja</span>';
+  if(cdShowMA){
+    legend+='<span><span style="display:inline-block;width:14px;height:2px;background:#f0b429;margin-right:4px;vertical-align:middle"></span>MA 20</span>';
+    legend+='<span><span style="display:inline-block;width:14px;height:2px;background:#a78bfa;margin-right:4px;vertical-align:middle"></span>MA 50</span>';
+  }
+  legend+='</div>';
+  wrap.innerHTML=legend+svg;
+}
 
 // PROJECTIONS
 function buildProjections(){
@@ -877,11 +1027,11 @@ const HMAP_SYMS=['SPY','QQQ','DIA','IWM','AAPL','MSFT','NVDA','TSLA','META','AMZ
 async function loadHeatmap(){
   const c=document.getElementById('hmapC');
   c.innerHTML='<div class="pt"><i class="ti ti-activity"></i>Calor del mercado · Cambio % hoy</div><div class="hmap" id="hmGrid"><div class="loader"><div class="sp"></div>Cargando…</div></div>';
-  if(!KEY){document.getElementById('hmGrid').innerHTML='<div class="info" style="grid-column:1/-1"><i class="ti ti-info-circle"></i> Configura tu API Key para ver el mapa.</div>';return;}
+  if(!KEY&&!TDKEY){document.getElementById('hmGrid').innerHTML='<div class="info" style="grid-column:1/-1"><i class="ti ti-info-circle"></i> Configura tu API Key para ver el mapa.</div>';return;}
   const grid=document.getElementById('hmGrid');
   grid.innerHTML=HMAP_SYMS.map(s=>`<div class="hcell" id="hc_${s.replace('-','')}"><div class="hcsym">${s}</div><div class="hcpct" id="hp_${s.replace('-','')}">—</div></div>`).join('');
   for(const s of HMAP_SYMS){
-    const d=await fh('/quote?symbol='+s);
+    const d=await getQuote(s);
     const id=s.replace('-','');
     const cell=document.getElementById('hc_'+id);
     if(d&&d.c&&cell){
@@ -1022,7 +1172,7 @@ async function renderPortfolio(){
   let total=0,pnl=0,win=0;
   const rows=[];
   for(const p of portfolio){
-    const d=await fh('/quote?symbol='+p.sym);
+    const d=await getQuote(p.sym);
     const cur=d&&d.c?d.c:p.avg;
     const pnlPos=(cur-p.avg)*p.shares;
     const pct=((cur-p.avg)/p.avg*100);
@@ -1092,13 +1242,13 @@ async function loadNews(){
 // SCANNER
 async function runScan(){
   const input=document.getElementById('scanIn').value.trim();
-  if(!input||!KEY){if(!KEY)openM();return;}
+  if(!input||(!KEY&&!TDKEY)){if(!KEY&&!TDKEY)openM();return;}
   const syms=input.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean).slice(0,10);
   const r=document.getElementById('scanR');
   r.innerHTML='<div class="loader"><div class="sp"></div>Escaneando '+syms.length+' activos…</div>';
   const rows=[];
   for(const s of syms){
-    const[q,m]=await Promise.all([fh('/quote?symbol='+s),fh('/stock/metric?symbol='+s+'&metric=all')]);
+    const[q,m]=await Promise.all([getQuote(s),fh('/stock/metric?symbol='+s+'&metric=all')]);
     if(q&&q.c){const p=((q.c-q.pc)/q.pc*100),ri=m?.metric?.rsi14??null,sg=sig(p,ri);rows.push({s,p:q.c,pct:p,rsi:ri,sg});}
   }
   if(!rows.length){r.innerHTML='<div class="err"><i class="ti ti-alert-circle"></i> Sin datos. Verifica los tickers.</div>';return;}
